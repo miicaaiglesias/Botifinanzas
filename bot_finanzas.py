@@ -40,7 +40,7 @@ OBJETIVOS_SHEET_NAME = "Objetivos"
 
 def get_gspread_client():
     """Crea el cliente de gspread usando JSON en variable o archivo local."""
-    json_content = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON_CONTENT")
+    json_content = os.getenv("GOOGLE_SERVICE_ACCOUNT")
     if json_content:
         info = json.loads(json_content)
         creds = Credentials.from_service_account_info(info, scopes=SCOPES)
