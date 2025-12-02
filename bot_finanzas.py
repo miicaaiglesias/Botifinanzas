@@ -9,6 +9,8 @@ import httpx
 import gspread
 from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
+from flask import Flask
+import threading
 
 
 # -------------------- LOGGING --------------------
@@ -493,5 +495,26 @@ async def main():
                 await asyncio.sleep(5)
 
 
-if __name__ == "__main__":
+# -------------------- SERVIDOR WEB PARA RENDER --------------------
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Bot de finanzas funcionando OK ✅"
+
+
+def start_bot():
+    """Arranca el bot de Telegram en un hilo separado."""
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    # Lanzamos el bot en segundo plano
+    bot_thread = threading.Thread(target=start_bot, daemon=True)
+    bot_thread.start()
+
+    # Lanzamos el mini servidor web para que Render vea un puerto abierto
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+
