@@ -9,7 +9,7 @@ import httpx
 import gspread
 from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
-from flask import Flask
+from flask import Flask, request
 import threading
 
 
@@ -462,59 +462,30 @@ async def handle_update(client: httpx.AsyncClient, base_url: str, update: dict):
 
 # -------------------- MAIN LOOP (LONG POLLING) --------------------
 
-async def main():
-    if not TELEGRAM_TOKEN:
-        raise RuntimeError("Falta configurar TELEGRAM_TOKEN.")
-
-    base_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
-    logger.info("Bot de finanzas iniciado con long polling.")
-
-    offset = None
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        while True:
-            try:
-                params = {"timeout": 25}
-                if offset is not None:
-                    params["offset"] = offset
-
-                resp = await client.get(f"{base_url}/getUpdates", params=params)
-                data = resp.json()
-
-                if not data.get("ok"):
-                    logger.warning("Respuesta no OK de Telegram: %s", data)
-                    await asyncio.sleep(3)
-                    continue
-
-                for upd in data.get("result", []):
-                    offset = upd["update_id"] + 1
-                    await handle_update(client, base_url, upd)
-
-            except Exception as e:
-                logger.exception("Error en loop principal: %s", e)
-                await asyncio.sleep(5)
-
-
-# -------------------- SERVIDOR WEB PARA RENDER --------------------
+# ... (todo tu código anterior de comandos y handlers queda igual) ...
 
 app = Flask(__name__)
 
-@app.route("/")
+# Creamos un cliente HTTP global para reusar conexiones
+async_client = httpx.AsyncClient(timeout=30.0)
+base_url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
+
+@app.route("/", methods=["GET"])
 def home():
-    return "Bot de finanzas funcionando OK ✅"
+    return "Bot de finanzas funcionando OK ✅", 200
 
-
-def start_bot():
-    """Arranca el bot de Telegram en un hilo separado."""
-    asyncio.run(main())
-
+@app.route(f"/{TELEGRAM_TOKEN}", methods=["POST"])
+async def telegram_webhook():
+    """Este es el endpoint que Telegram tocará cada vez que haya un mensaje."""
+    update = json.loads(request.data)
+    
+    # Ejecutamos la lógica que ya tenías escrita
+    await handle_update(async_client, base_url, update)
+    
+    return "OK", 200
 
 if __name__ == "__main__":
-    # Lanzamos el bot en segundo plano
-    bot_thread = threading.Thread(target=start_bot, daemon=True)
-    bot_thread.start()
-
-    # Lanzamos el mini servidor web para que Render vea un puerto abierto
+    # Importante: para Render necesitas que Flask sea asíncrono o manejar el loop
+    # Usaremos el servidor de desarrollo de Flask para este ejemplo rápido:
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
-
